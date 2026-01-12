@@ -1,4 +1,4 @@
-module github.com/niels-nijens/openapi-filter
+module github.com/zguydev/openapi-filter
 
 go 1.24.0
 
