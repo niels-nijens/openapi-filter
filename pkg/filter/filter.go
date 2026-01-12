@@ -4,6 +4,7 @@
 package filter
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -116,8 +117,26 @@ func (oaf *OpenAPISpecFilter) filterWebhooks() {
 		// complex manual parsing of the Extensions map.
 		filteredWebhooks[name] = webhookAny
 
-		// Try to collect references if possible (this is limited because it's 'any')
-		// For a full implementation, we'd need to unmarshal 'webhookAny' into a PathItem.
+		// Collect references from the webhook.
+		// Since 'webhookAny' is an interface{} from the Extensions map,
+		// we unmarshal it into openapi3.PathItem to extract references.
+		data, err := json.Marshal(webhookAny)
+		if err != nil {
+			oaf.logger.Warn("failed to marshal webhook for reference collection",
+				zap.String("webhook", name),
+				zap.Error(err))
+			continue
+		}
+
+		var pathItem openapi3.PathItem
+		if err := json.Unmarshal(data, &pathItem); err != nil {
+			oaf.logger.Warn("failed to unmarshal webhook for reference collection",
+				zap.String("webhook", name),
+				zap.Error(err))
+			continue
+		}
+
+		oaf.collector.CollectPathItem(&pathItem)
 	}
 
 	if len(filteredWebhooks) > 0 {
@@ -167,15 +186,27 @@ func (oaf *OpenAPISpecFilter) setOperation(
 }
 
 // filterRefs processes all collected references and ensures they are properly
-// included in the filtered spec.
+// included in the filtered spec. It works recursively to include nested references.
 func (oaf *OpenAPISpecFilter) filterRefs() {
-	for ref := range oaf.collector.Refs() {
-		oaf.filterRef(ref)
+	processedRefs := make(map[string]struct{})
+	for {
+		newRefsFound := false
+		for ref := range oaf.collector.Refs() {
+			if _, processed := processedRefs[ref]; processed {
+				continue
+			}
+			oaf.filterRef(ref)
+			processedRefs[ref] = struct{}{}
+			newRefsFound = true
+		}
+		if !newRefsFound {
+			break
+		}
 	}
 }
 
-// filterRef processes a single reference and copies the referenced component
-// to the filtered spec.
+// filterRef processes a single reference, copies the referenced component
+// to the filtered spec, and collects any further references from it.
 func (oaf *OpenAPISpecFilter) filterRef(ref string) {
 	if oaf.doc.Components == nil {
 		return
@@ -205,7 +236,11 @@ func (oaf *OpenAPISpecFilter) filterRef(ref string) {
 			zap.String("def", def),
 			zap.String("name", name),
 			zap.String("ref", ref))
+		return
 	}
+
+	// After copying the component, we must collect all references it contains.
+	oaf.collector.CollectComponent(oaf.doc.Components, compType, name)
 }
 
 // filterComponents processes all components specified in the configuration and

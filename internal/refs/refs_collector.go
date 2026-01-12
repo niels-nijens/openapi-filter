@@ -159,7 +159,7 @@ func (rc *RefsCollector) collectCallbackRef(cbr *openapi3.CallbackRef) {
 	}
 	if c := cbr.Value; c != nil {
 		for _, path := range c.Map() {
-			rc.collectPathItem(path)
+			rc.CollectPathItem(path)
 		}
 	}
 }
@@ -170,7 +170,7 @@ func (rc *RefsCollector) collectCallbacks(callbacks openapi3.Callbacks) {
 	}
 }
 
-func (rc *RefsCollector) collectPathItem(path *openapi3.PathItem) {
+func (rc *RefsCollector) CollectPathItem(path *openapi3.PathItem) {
 	if path.Ref != "" {
 		rc.AddRef(path.Ref)
 	}
