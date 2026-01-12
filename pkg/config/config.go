@@ -15,6 +15,7 @@ type Config struct {
 type FilterConfig struct {
 	Servers      bool                    `koanf:"servers"`      // Include servers section
 	Paths        map[string][]string     `koanf:"paths"`        // Map of paths to allowed HTTP methods
+	Webhooks     map[string][]string     `koanf:"webhooks"`     // Map of webhooks to allowed HTTP methods
 	Components   *FilterComponentsConfig `koanf:"components"`   // Component filtering configuration
 	Security     bool                    `koanf:"security"`     // Include security requirements
 	Tags         bool                    `koanf:"tags"`         // Include tags
